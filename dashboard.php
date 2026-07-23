@@ -72,11 +72,11 @@ if (isset($_GET['err'])) {
 <aside class="sidebar">
     <div class="sidebar-logo">🧥 ThriftHub</div>
 
-    <a href="dashboard.php?page=dashboard" class="nav-item <?= $page == 'dashboard' ? 'active' : '' ?>">🏠 Dashboard</a>
-    <a href="dashboard.php?page=products" class="nav-item <?= $page == 'products' ? 'active' : '' ?>">🛍️ Browse Items</a>
-    <a href="dashboard.php?page=withdraw" class="nav-item <?= $page == 'withdraw' ? 'active' : '' ?>">💵 Withdraw Earnings</a>
-    <a href="dashboard.php?page=history" class="nav-item <?= $page == 'history' ? 'active' : '' ?>">📋 History</a>
-    <a href="dashboard.php?page=account" class="nav-item <?= $page == 'account' ? 'active' : '' ?>">👤 My Account</a>
+    <a href="dashboard.php?page=dashboard" class="nav-item <?= $page == 'dashboard' ? 'active' : '' ?>"> Dashboard</a>
+    <a href="dashboard.php?page=products" class="nav-item <?= $page == 'products' ? 'active' : '' ?>"> Browse Items</a>
+    <a href="dashboard.php?page=withdraw" class="nav-item <?= $page == 'withdraw' ? 'active' : '' ?>"> Withdraw Earnings</a>
+    <a href="dashboard.php?page=history" class="nav-item <?= $page == 'history' ? 'active' : '' ?>"> History</a>
+    <a href="dashboard.php?page=account" class="nav-item <?= $page == 'account' ? 'active' : '' ?>"> My Account</a>
 
     <div class="sidebar-footer">
         <div class="user-chip">

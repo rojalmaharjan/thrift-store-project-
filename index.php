@@ -136,7 +136,7 @@ $order_count = $conn->query("SELECT COUNT(*) as cnt FROM orders")->fetch_assoc()
 <footer class="footer">
     <div class="container">
         <p><strong>ThriftHub</strong> - Peer-to-Peer Thrift Store Platform</p>
-        <p style="margin-top:6px;">Developed for BCA TU 4th Semester Web Technology Project &copy; <?= date('Y') ?></p>
+        <p style="margin-top:6px;">Developed for BCA TU 4th Semester Web Technology Project &copy; <?= date('Y') ?></p> 
     </div>
 </footer>
 

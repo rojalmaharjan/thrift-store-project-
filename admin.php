@@ -13,7 +13,7 @@ $total_products = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt
 $total_orders = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM orders"))['cnt'];
 
 $vol_row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(amount) as sum FROM transactions WHERE type='credit'"));
-$total_volume = $vol_row['sum'] ? $vol_row['sum'] : 0;
+$total_volume = $vol_row['sum'] ? $vol_row['sum'] : 0; 
 
 $users = array();
 $u_res = mysqli_query($conn, "SELECT id, full_name, username, email, balance, role, created_at FROM users ORDER BY id DESC");

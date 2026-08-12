@@ -135,7 +135,7 @@ if ($is_logged_in) {
 </div>
 
 <footer class="footer">
-    <div class="container">
+    <div class="container"> 
         ThriftHub &copy; <?= date('Y') ?> - BCA TU 4th Sem Project.
     </div>
 </footer>

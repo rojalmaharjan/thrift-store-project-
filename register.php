@@ -20,7 +20,7 @@ $err = $_GET['err'] ?? '';
 
 <nav class="navbar">
     <div class="container nav-container">
-        <a href="index.php" class="brand">🧥 ThriftHub</a>
+        <a href="index.php" class="brand"> ThriftHub</a>
         <div class="nav-actions">
             <a href="login.php" class="nav-link">Sign In</a>
             <a href="register.php" class="nav-link active" style="padding: 8px 16px; background: var(--blue); color: white; border-radius: 8px; font-weight: 600;">Register</a>
@@ -31,17 +31,17 @@ $err = $_GET['err'] ?? '';
 <div class="auth-wrapper">
     <div class="auth-card">
         <div class="auth-header">
-            <h1>Create Account 🛍️</h1>
+            <h1>Create Account </h1>
             <p style="color: var(--muted); font-size: 14px;">Join ThriftHub and get Rs. 5,000 demo balance instantly!</p>
         </div>
 
         <?php if ($err === 'exists') { ?>
             <div style="background: rgba(248,81,73,0.15); color: #f85149; border: 1px solid rgba(248,81,73,0.3); padding: 12px; border-radius: 8px; font-size: 14px; margin-bottom: 20px; text-align: center;">
-                ⚠️ Username or email address is already registered.
+                 Username or email address is already registered.
             </div>
         <?php } elseif ($err === 'empty') { ?>
             <div style="background: rgba(248,81,73,0.15); color: #f85149; border: 1px solid rgba(248,81,73,0.3); padding: 12px; border-radius: 8px; font-size: 14px; margin-bottom: 20px; text-align: center;">
-                ⚠️ Please fill out all required fields.
+                 Please fill out all required fields.
             </div>
         <?php } ?>
 

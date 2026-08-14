@@ -56,7 +56,10 @@ if(!isset($_SESSION['user_id'])){ header("Location: login.php"); exit; }
 $user_id = $_SESSION['user_id'];
 
 if($action == "purchase"){
-    $product_id = $_POST['product_id'];
+    $product_id = $_POST['product_id'] ?? '';
+    $delivery_address = trim($_POST['delivery_address'] ?? '');
+    $phone_number = trim($_POST['phone_number'] ?? '');
+
     $result = mysqli_query($conn, "SELECT * FROM products WHERE id='$product_id'");
     $product = mysqli_fetch_assoc($result);
 
@@ -64,12 +67,14 @@ if($action == "purchase"){
     if($product['seller_id'] == $user_id){ header("Location: dashboard.php?page=products&err=own_item"); exit; }
     if($product['stock'] <= 0 || $product['status'] != "active"){ header("Location: dashboard.php?page=products&err=sold_out"); exit; }
 
-    $buyer = mysqli_fetch_assoc(mysqli_query($conn, "SELECT balance FROM users WHERE id='$user_id'"));
-    $price = $product['price'];
-    if($buyer['balance'] < $price){ header("Location: dashboard.php?page=products&err=insufficient"); exit; }
+    $result = mysqli_query($conn, "SELECT * FROM products WHERE id='$product_id'");
+    $product = mysqli_fetch_assoc($result);
 
-    mysqli_query($conn, "UPDATE users SET balance = balance - $price WHERE id='$user_id'");
-    mysqli_query($conn, "UPDATE users SET balance = balance + $price WHERE id='".$product['seller_id']."'");
+    if(!$product){ header("Location: dashboard.php?page=products&err=not_found"); exit; }
+    if($product['seller_id'] == $user_id){ header("Location: dashboard.php?page=products&err=own_item"); exit; }
+    if($product['stock'] <= 0 || $product['status'] != "active"){ header("Location: dashboard.php?page=products&err=sold_out"); exit; }
+
+    $price = $product['price'];
 
     $new_stock = $product['stock'] - 1;
     $status = $new_stock <= 0 ? "sold" : "active";
@@ -77,9 +82,22 @@ if($action == "purchase"){
 
     $ord_ref = "ORD".rand(100000,999999);
     mysqli_query($conn, "INSERT INTO orders (order_ref, buyer_id, seller_id, product_id, amount, status) VALUES ('$ord_ref','$user_id','".$product['seller_id']."','$product_id','$price','Completed')");
+    
+    // ... rest of your code for transactions/redirect
+    $new_stock = $product['stock'] - 1;
+    $status = $new_stock <= 0 ? "sold" : "active";
+    mysqli_query($conn, "UPDATE products SET stock='$new_stock', status='$status' WHERE id='$product_id'");
+
+    $ord_ref = "ORD".rand(100000,999999);
+    mysqli_query($conn, "INSERT INTO orders (order_ref, buyer_id, seller_id, product_id, amount, status) VALUES ('$ord_ref','$user_id','".$product['seller_id']."','$product_id','$price','Completed')");
+
+    $t1_desc = 'Purchased thrift item: '.$product['name'];
+    if(!empty($delivery_address)){
+        $t1_desc .= ' (Addr: '.$delivery_address.')';
+    }
 
     $t1 = "TXN".rand(100000,999999);
-    mysqli_query($conn, "INSERT INTO transactions (user_id, txn_ref, description, amount, type) VALUES ('$user_id','$t1','Purchased thrift item: ".$product['name']."','$price','debit')");
+    mysqli_query($conn, "INSERT INTO transactions (user_id, txn_ref, description, amount, type) VALUES ('$user_id','$t1','$t1_desc','$price','debit')");
 
     $t2 = "TXN".rand(100000,999999);
     mysqli_query($conn, "INSERT INTO transactions (user_id, txn_ref, description, amount, type) VALUES ('".$product['seller_id']."','$t2','Sold thrift item: ".$product['name']."','$price','credit')");
@@ -94,7 +112,6 @@ if($action == "add_product"){
     $condition_status = $_POST['condition_status'];
     $stock = $_POST['stock'];
     $description = $_POST['description'];
-    if($name == "" || $price <= 0){ header("Location: dashboard.php?page=add_product&err=invalid_input"); exit; }
 
     $image_name = "default_item.jpg";
     if(isset($_FILES['image']) && $_FILES['image']['error'] == 0){

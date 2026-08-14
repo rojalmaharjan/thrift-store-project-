@@ -12,7 +12,7 @@ $user_id = $_SESSION['user_id'];
 $page = $_GET['page'] ?? 'dashboard';
 
 // Fetch User Data
-$stmt = $conn->prepare("SELECT full_name, username, email, balance, role, created_at FROM users WHERE id = ?");
+$stmt = $conn->prepare("SELECT full_name, username, email, role, created_at FROM users WHERE id = ?");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();
@@ -23,33 +23,49 @@ if (!$user) {
     exit;
 }
 
-$full_name = $user['full_name'];
-$balance   = floatval($user['balance']);
-$username  = $user['username'];
-$email     = $user['email'];
-$role      = $user['role'];
+$full_name  = $user['full_name'];
+$username   = $user['username'];
+$email      = $user['email'];
+$role       = $user['role'];
+$created_at = $user['created_at'];
 
-// Fetch User Transactions
-$txns = [];
-$t_stmt = $conn->prepare("SELECT txn_ref, description, amount, type, created_at FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 100");
-$t_stmt->bind_param("i", $user_id);
-$t_stmt->execute();
-$t_res = $t_stmt->get_result();
-while ($row = $t_res->fetch_assoc()) {
-    $txns[] = $row;
+// Fetch User Orders / Purchases
+$my_orders = [];
+$o_stmt = $conn->prepare("SELECT o.*, p.name as product_name, p.image as product_image, s.full_name as seller_name, s.username as seller_username FROM orders o JOIN products p ON o.product_id = p.id JOIN users s ON o.seller_id = s.id WHERE o.buyer_id = ? ORDER BY o.created_at DESC");
+$o_stmt->bind_param("i", $user_id);
+$o_stmt->execute();
+$o_res = $o_stmt->get_result();
+while ($row = $o_res->fetch_assoc()) {
+    $my_orders[] = $row;
 }
 
-// Fetch Marketplace Products (from other sellers)
-$products = [];
-$p_stmt = $conn->prepare("SELECT p.*, c.name as category_name, u.full_name as seller_name FROM products p JOIN categories c ON p.category_id = c.id JOIN users u ON p.seller_id = u.id WHERE p.stock > 0 AND p.seller_id != ? AND p.status = 'active' ORDER BY p.id DESC");
-$p_stmt->bind_param("i", $user_id);
+// Fetch User Sales (Orders where user is seller)
+$my_sales = [];
+$s_stmt = $conn->prepare("SELECT o.*, p.name as product_name, b.full_name as buyer_name, b.username as buyer_username FROM orders o JOIN products p ON o.product_id = p.id JOIN users b ON o.buyer_id = b.id WHERE o.seller_id = ? ORDER BY o.created_at DESC");
+$s_stmt->bind_param("i", $user_id);
+$s_stmt->execute();
+$s_res = $s_stmt->get_result();
+while ($row = $s_res->fetch_assoc()) {
+    $my_sales[] = $row;
+}
+
+// Fetch Marketplace Apparel Items (from other sellers) by Category ID
+$cat_id = $_GET['cat_id'] ?? null;
+if ($cat_id) {
+    $p_stmt = $conn->prepare("SELECT p.*, c.name as category_name, u.full_name as seller_name, u.username as seller_username FROM products p JOIN categories c ON p.category_id = c.id JOIN users u ON p.seller_id = u.id WHERE p.stock > 0 AND p.seller_id != ? AND p.status = 'active' AND c.id = ? ORDER BY p.id DESC");
+    $p_stmt->bind_param("ii", $user_id, $cat_id);
+} else {
+    $p_stmt = $conn->prepare("SELECT p.*, c.name as category_name, u.full_name as seller_name, u.username as seller_username FROM products p JOIN categories c ON p.category_id = c.id JOIN users u ON p.seller_id = u.id WHERE p.stock > 0 AND p.seller_id != ? AND p.status = 'active' ORDER BY p.id DESC");
+    $p_stmt->bind_param("i", $user_id);
+}
 $p_stmt->execute();
+$products = [];
 $p_res = $p_stmt->get_result();
 while ($row = $p_res->fetch_assoc()) {
     $products[] = $row;
 }
 
-// Fetch User's Own Listed Products
+// Fetch User's Own Listed Wardrobe Items
 $my_products = [];
 $mp_stmt = $conn->prepare("SELECT p.*, c.name as category_name FROM products p JOIN categories c ON p.category_id = c.id WHERE p.seller_id = ? ORDER BY p.id DESC");
 $mp_stmt->bind_param("i", $user_id);
@@ -61,10 +77,21 @@ while ($row = $mp_res->fetch_assoc()) {
 
 // Fetch Categories for product upload form
 $categories = [];
-$c_res = $conn->query("SELECT * FROM categories ORDER BY name ASC");
+$c_res = $conn->query("SELECT * FROM categories ORDER BY id ASC");
 while ($row = $c_res->fetch_assoc()) {
     $categories[] = $row;
 }
+
+// Dashboard metrics
+$active_listings = 0;
+$sold_listings = 0;
+foreach ($my_products as $p) {
+    if ($p['status'] === 'active') { $active_listings++; } else { $sold_listings++; }
+}
+
+$purchases_count = count($my_orders);
+$sales_count     = count($my_sales);
+$eco_score       = $active_listings + $sold_listings + $purchases_count;
 
 // Handle Notification Alerts
 $alert = '';
@@ -72,31 +99,23 @@ $atype = '';
 
 if (isset($_GET['ok'])) {
     $ref = htmlspecialchars($_GET['ref'] ?? '');
-    if ($page === 'withdraw') {
-        $alert = "Withdrawal request successful! Reference: #$ref";
-        $atype = 'success';
-    } else {
-        $alert = "Order placed successfully! Reference: #$ref";
-        $atype = 'success';
-    }
+    $alert = "Streetwear item acquired! Order Reference: #$ref.";
+    $atype = 'success';
 }
 
 if (isset($_GET['msg'])) {
     $msg = $_GET['msg'];
-    if ($msg === 'welcome') { $alert = "Welcome to ThriftHub! We've credited Rs. 5,000 demo wallet balance to get you started."; $atype = 'success'; }
-    elseif ($msg === 'added') { $alert = "Your thrift item has been listed for sale!"; $atype = 'success'; }
-    elseif ($msg === 'deleted') { $alert = "Item removed from listings."; $atype = 'success'; }
-    elseif ($msg === 'deposited') { $alert = "Demo wallet top-up added successfully!"; $atype = 'success'; }
+    if ($msg === 'welcome') { $alert = "Welcome to ThriftHub. Start listing your vintage streetwear or browsing drops."; $atype = 'success'; }
+    elseif ($msg === 'added') { $alert = "Your vintage garment drop is live!"; $atype = 'success'; }
+    elseif ($msg === 'deleted') { $alert = "Garment listing removed."; $atype = 'success'; }
 }
 
 if (isset($_GET['err'])) {
     $err = $_GET['err'];
-    if ($err === 'insufficient') $alert = 'Insufficient wallet balance.';
-    elseif ($err === 'invalid_amount') $alert = 'Please enter a valid amount.';
-    elseif ($err === 'no_product') $alert = 'Please select a valid item.';
+    if ($err === 'no_product') $alert = 'Please select a valid clothing item.';
     elseif ($err === 'not_found') $alert = 'Item not found.';
-    elseif ($err === 'own_item') $alert = 'You cannot buy your own listing.';
-    elseif ($err === 'sold_out') $alert = 'This item is already sold out.';
+    elseif ($err === 'own_item') $alert = 'You cannot purchase your own drop.';
+    elseif ($err === 'sold_out') $alert = 'This drop is sold out.';
     else $alert = 'An error occurred. Please try again.';
     $atype = 'error';
 }
@@ -106,37 +125,37 @@ if (isset($_GET['err'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ThriftHub Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>ThriftHub // Urban Streetwear & Vintage Closet</title>
     <link rel="stylesheet" href="dashboard.css">
 </head>
 <body>
 
 <!-- Sidebar Navigation -->
 <aside class="sidebar">
-    <a href="index.php" class="sidebar-logo">🧥 ThriftHub</a>
+    <a href="index.php" class="sidebar-logo">
+        Thrift<em>HUB</em>
+    </a>
 
-    <a href="dashboard.php?page=dashboard" class="nav-item <?= $page == 'dashboard' ? 'active' : '' ?>">📊 Dashboard</a>
-    <a href="dashboard.php?page=products" class="nav-item <?= $page == 'products' ? 'active' : '' ?>">🛍️ Browse Items</a>
-    <a href="dashboard.php?page=add_product" class="nav-item <?= $page == 'add_product' ? 'active' : '' ?>">➕ Sell Thrift Item</a>
-    <a href="dashboard.php?page=my_listings" class="nav-item <?= $page == 'my_listings' ? 'active' : '' ?>">📦 My Listings (<?= count($my_products) ?>)</a>
-    <a href="dashboard.php?page=withdraw" class="nav-item <?= $page == 'withdraw' ? 'active' : '' ?>">💵 Wallet & Withdraw</a>
-    <a href="dashboard.php?page=history" class="nav-item <?= $page == 'history' ? 'active' : '' ?>">📋 Transaction History</a>
-    <a href="dashboard.php?page=account" class="nav-item <?= $page == 'account' ? 'active' : '' ?>">👤 My Profile</a>
+    <a href="dashboard.php?page=dashboard" class="nav-item <?= $page == 'dashboard' ? 'active' : '' ?>"> Dashboard </a>
+    <a href="dashboard.php?page=products" class="nav-item <?= $page == 'products' ? 'active' : '' ?>">Marketplace</a>
+    <a href="dashboard.php?page=add_product" class="nav-item <?= $page == 'add_product' ? 'active' : '' ?>">Listing</a>
+    <a href="dashboard.php?page=my_listings" class="nav-item <?= $page == 'my_listings' ? 'active' : '' ?>">My listing (<?= count($my_products) ?>)</a>
+    <a href="dashboard.php?page=history" class="nav-item <?= $page == 'history' ? 'active' : '' ?>"> ORDER LOG</a>
+    <a href="dashboard.php?page=account" class="nav-item <?= $page == 'account' ? 'active' : '' ?>"> My PROFILE</a>
 
     <?php if ($role === 'admin') { ?>
-        <a href="admin.php" class="nav-item" style="color:var(--blue); border:1px dashed var(--blue); margin-top:10px;">⚙️ Admin Panel</a>
+        <a href="admin.php" class="nav-item" style="color:var(--crimson); border:1px dashed var(--crimson); margin-top:14px;">⚙️ ADMIN SYSTEM</a>
     <?php } ?>
 
     <div class="sidebar-footer">
         <div class="user-chip">
             <div class="avatar"><?= strtoupper(substr($full_name, 0, 1)) ?></div>
             <div style="overflow:hidden;">
-                <strong style="font-size:14px; color:white;"><?= htmlspecialchars($full_name) ?></strong><br>
+                <strong style="font-size:14px; color:var(--white);"><?= htmlspecialchars($full_name) ?></strong><br>
                 <small style="color:var(--muted);">@<?= htmlspecialchars($username) ?></small>
             </div>
         </div>
-        <a href="logout.php" class="nav-item logout">🚪 Logout</a>
+        <a href="logout.php" class="nav-item logout">🚪 SIGN OUT</a>
     </div>
 </aside>
 
@@ -145,76 +164,74 @@ if (isset($_GET['err'])) {
 
     <?php if (!empty($alert)) { ?>
         <div class="alert alert-<?= $atype ?>">
-            <span><?= $atype === 'success' ? '✅' : '⚠️' ?></span>
+            <span><?= $atype === 'success' ? 'Go' : 'Error' ?></span>
             <div><?= htmlspecialchars($alert) ?></div>
         </div>
     <?php } ?>
 
     <?php if ($page == 'dashboard') { ?>
 
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-            <div>
-                <h1>Welcome back, <?= htmlspecialchars(explode(' ', $full_name)[0]) ?> 👋</h1>
-                <p class="muted">Here is an overview of your thrift wallet, sales and recent activity.</p>
+        <div class="card">
+            <h2 style="margin-bottom:16px;">Dashboard</h2>
+            <div class="actions-row">
+                <a href="dashboard.php?page=add_product" class="btn btn-crimson"> LIST GARMENT</a>
+                <a href="dashboard.php?page=products" class="btn btn-outline">  SHOP MARKETPLACE</a>
+                <a href="dashboard.php?page=my_listings" class="btn btn-outline">  MANAGE WARDROBE</a>
+                <a href="dashboard.php?page=history" class="btn btn-outline">  ORDER LOG</a>
             </div>
-            <a href="dashboard.php?page=add_product" class="btn btn-green">+ List New Item</a>
         </div>
 
-        <div class="grid3">
-            <div class="card">
-                <div class="card-label">Available Wallet Balance</div>
-                <div class="amount-lg" style="color:#3fb950;">Rs. <?= number_format($balance, 2) ?></div>
-                <form method="POST" action="action.php" style="margin-top:12px;">
-                    <input type="hidden" name="action" value="deposit">
-                    <input type="hidden" name="amount" value="1000">
-                    <button type="submit" class="btn btn-outline" style="padding:6px 12px; font-size:12px; width:100%;">+ Top Up Rs. 1,000 (Demo)</button>
-                </form>
-            </div>
-
-            <div class="card">
-                <div class="card-label">My Thrift Listings</div>
-                <div class="amount-lg"><?= count($my_products) ?></div>
-                <div class="muted" style="margin-top:6px;">Items you're currently selling</div>
-            </div>
-
-            <div class="card">
-                <div class="card-label">Account Status</div>
-                <div style="margin-top:8px;">
-                    <span class="badge">✔ Verified Member</span>
-                    <?php if ($role === 'admin') { ?><span class="badge badge-amber" style="margin-left:4px;">Admin</span><?php } ?>
+        <div class="card" style="padding:0; overflow:hidden; border:1px solid var(--border);">
+            <div class="hero-banner-wrap">
+                <img src="th2.png" alt="Streetwear Fashion Vibe">
+                <div class="hero-banner-overlay">
+                    <div></div>
                 </div>
-                <div class="muted" style="margin-top:8px;">Role: <?= ucfirst($role) ?></div>
             </div>
         </div>
 
         <div class="card">
-            <h2>Recent Wallet Activity</h2>
-            <?php if (count($txns) == 0) { ?>
-                <p class="muted">No transactions yet.</p>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+                <h2 style="margin:0;">RECENT DROPS & ORDER ACTIVITY</h2>
+                <a href="dashboard.php?page=history" style="color:var(--crimson); font-weight:800; font-size:12px; text-decoration:none; letter-spacing:1px; text-transform:uppercase;">VIEW ALL ACTIVITY &rarr;</a>
+            </div>
+            <?php 
+            $recent_activity = array_merge(
+                array_map(function($o){ $o['act_type'] = 'Bought'; return $o; }, $my_orders),
+                array_map(function($s){ $s['act_type'] = 'Sold'; return $s; }, $my_sales)
+            );
+            usort($recent_activity, function($a, $b){ return strtotime($b['created_at']) - strtotime($a['created_at']); });
+            $recent_activity = array_slice($recent_activity, 0, 5);
+
+            if (count($recent_activity) == 0) { ?>
+                <p class="muted">No streetwear activity logged yet. Your purchases and clothing sales will appear here.</p>
             <?php } else { ?>
                 <table>
                     <thead>
                         <tr>
-                            <th>REF ID</th>
-                            <th>DESCRIPTION</th>
+                            <th>ORDER REF</th>
+                            <th>GARMENT ITEM</th>
+                            <th>TYPE</th>
                             <th>DATE</th>
                             <th>STATUS</th>
-                            <th>AMOUNT</th>
+                            <th>PRICE</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php
-                        $recent = array_slice($txns, 0, 5);
-                        foreach ($recent as $t) {
-                        ?>
+                        <?php foreach ($recent_activity as $act) { ?>
                         <tr>
-                            <td class="muted">#<?= htmlspecialchars($t['txn_ref']) ?></td>
-                            <td><?= htmlspecialchars($t['description']) ?></td>
-                            <td class="muted"><?= date('M d, Y h:i A', strtotime($t['created_at'])) ?></td>
-                            <td><span class="badge">Completed</span></td>
-                            <td class="<?= $t['type'] == 'credit' ? 'pos' : 'neg' ?>">
-                                <?= $t['type'] == 'credit' ? '+' : '-' ?>Rs. <?= number_format($t['amount'], 2) ?>
+                            <td class="muted">#<?= htmlspecialchars($act['order_ref']) ?></td>
+                            <td><strong style="color:var(--white);"><?= htmlspecialchars($act['product_name']) ?></strong></td>
+                            <td>
+                                <?php if ($act['act_type'] === 'Bought') { ?>
+                                    <span class="badge badge-purple">ACQUIRED</span>
+                                <?php } else { ?>
+                                    <span class="badge badge-amber">🏷️ SOLD DROP</span>
+                                <?php } ?>
                             </td>
+                            <td class="muted"><?= date('M d, Y h:i A', strtotime($act['created_at'])) ?></td>
+                            <td><span class="badge">COMPLETED</span></td>
+                            <td style="color:var(--cream); font-weight:800; font-family:'Outfit', sans-serif;">Rs. <?= number_format($act['amount'], 2) ?></td>
                         </tr>
                         <?php } ?>
                     </tbody>
@@ -224,30 +241,77 @@ if (isset($_GET['err'])) {
 
     <?php } elseif ($page == 'products') { ?>
 
-        <h1>🛍️ Browse Available Thrift Items</h1>
-        <p class="muted" style="margin-bottom:20px;">Available Wallet Balance: <strong style="color:#3fb950;">Rs. <?= number_format($balance, 2) ?></strong></p>
+        <div style="margin-bottom:28px;">
+            <h1> URBAN STREETWEAR DROPS</h1>
+            <p class="muted">Authentic pre-loved vintage, oversized hoodies, denim, and sneakers for the bold.</p>
+        </div>
+
+        <!-- Clothing Filter Tags using actual database Category IDs -->
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:28px;">
+            <a href="dashboard.php?page=products" class="btn <?= !$cat_id ? 'btn-crimson' : 'btn-outline' ?>" style="padding:8px 16px; font-size:12px;">ALL APPAREL</a>
+            <a href="dashboard.php?page=products&cat_id=1" class="btn <?= $cat_id == 1 ? 'btn-crimson' : 'btn-outline' ?>" style="padding:8px 16px; font-size:12px;">🧥 CLOTHING & OUTERWEAR</a>
+            <a href="dashboard.php?page=products&cat_id=2" class="btn <?= $cat_id == 2 ? 'btn-crimson' : 'btn-outline' ?>" style="padding:8px 16px; font-size:12px;">👟 FOOTWEAR & SNEAKERS</a>
+        </div>
 
         <?php if (count($products) == 0) { ?>
-            <div class="card"><p class="muted">No items available right now. Check back soon!</p></div>
+            <div class="card"><p class="muted">No drops found in this category right now. List your vintage clothes!</p></div>
         <?php } else { ?>
             <div class="product-grid">
                 <?php foreach ($products as $p) {
-                    $img = !empty($p['image']) && file_exists(__DIR__ . '/uploads/' . $p['image']) ? 'uploads/' . $p['image'] : 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500';
+                    // Define 3 simple images matched to your exact database categories
+                    $category_images = [
+                        'Clothing & Outerwear' => [
+                            'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600',
+                            'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600',
+                            'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=600'
+                        ],
+                        'Footwear & Sneakers' => [
+                            'https://images.unsplash.com/photo-1542272604-787c3835535d?w=600',
+                            'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=600',
+                            'https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=600'
+                        ]
+                    ];
+
+                    $cat_name = $p['category_name'];
+                    $images_for_cat = isset($category_images[$cat_name]) ? $category_images[$cat_name] : [
+                        'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600',
+                        'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600',
+                        'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=600'
+                    ];
+                    $assigned_image = $images_for_cat[$p['id'] % count($images_for_cat)];
+
+                    $img = !empty($p['image']) && file_exists(__DIR__ . '/uploads/' . $p['image']) 
+                        ? 'uploads/' . $p['image'] 
+                        : $assigned_image;
                 ?>
                 <div class="product-card">
-                    <img src="<?= $img ?>" class="product-img" alt="<?= htmlspecialchars($p['name']) ?>" onerror="this.src='https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500';">
+                    <div class="product-img-wrap">
+                        <img src="<?= $img ?>" class="product-img" alt="<?= htmlspecialchars($p['name']) ?>" onerror="this.src='https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600';">
+                        <span class="condition-pill"><?= htmlspecialchars($p['condition_status']) ?></span>
+                        <span class="size-pill">STREETWEAR</span>
+                    </div>
                     <div class="product-body">
-                        <div style="font-size:11px; color:var(--blue); font-weight:600; text-transform:uppercase; margin-bottom:4px;"><?= htmlspecialchars($p['category_name']) ?></div>
+                        <div class="product-category"><?= htmlspecialchars($p['category_name']) ?></div>
                         <div class="product-name"><?= htmlspecialchars($p['name']) ?></div>
-                        <div class="product-price">Rs. <?= number_format($p['price'], 2) ?></div>
-                        <div class="product-meta">
-                            <span>Condition: <?= htmlspecialchars($p['condition_status']) ?></span>
-                            <span>Seller: @<?= htmlspecialchars($p['seller_name']) ?></span>
+                        
+                        <div class="product-price-row">
+                            <div class="product-price">Rs. <?= number_format($p['price'], 2) ?></div>
                         </div>
-                        <form method="POST" action="action.php" style="margin-top:auto;">
+
+                        <div class="product-seller">
+                            <span>👤 CURATOR:</span>
+                            <strong style="color:var(--white);">@<?= htmlspecialchars($p['seller_username']) ?></strong>
+                        </div>
+
+                        <!-- Purchase Form without Optional Text -->
+                        <form method="POST" action="action.php" style="margin-top:auto; display:flex; flex-direction:column; gap:8px;">
                             <input type="hidden" name="action" value="purchase">
                             <input type="hidden" name="product_id" value="<?= $p['id'] ?>">
-                            <button type="submit" class="btn btn-green btn-full">⚡ Buy Now</button>
+                            
+                            <input type="text" name="delivery_address" class="form-input" placeholder="Delivery Address" style="font-size:12px; padding:8px;">
+                            <input type="text" name="phone_number" class="form-input" placeholder="Contact Phone Number" style="font-size:12px; padding:8px;">
+
+                            <button type="submit" class="btn btn-crimson btn-full"> ACQUIRE DROP</button>
                         </form>
                     </div>
                 </div>
@@ -257,16 +321,18 @@ if (isset($_GET['err'])) {
 
     <?php } elseif ($page == 'add_product') { ?>
 
-        <h1>➕ List Thrift Item for Sale</h1>
-        <p class="muted" style="margin-bottom:24px;">Post your pre-loved item to the ThriftHub marketplace.</p>
+        <div style="margin-bottom:28px;">
+            <h1> LIST GARMENT FOR SALE</h1>
+            <p class="muted">Post your pre-loved streetwear or vintage apparel to the community.</p>
+        </div>
 
-        <div class="card" style="max-width:600px;">
+        <div class="card" style="max-width:680px;">
             <form method="POST" action="action.php" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="add_product">
 
                 <div class="form-group">
-                    <label class="form-label">Item Title / Name *</label>
-                    <input class="form-input" type="text" name="name" placeholder="e.g. Vintage Leather Jacket" required>
+                    <label class="form-label">Garment Title / Item Name *</label>
+                    <input class="form-input" type="text" name="name" placeholder="e.g. Vintage Oversized Crimson Hoodie">
                 </div>
 
                 <div class="grid2">
@@ -280,58 +346,78 @@ if (isset($_GET['err'])) {
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Condition *</label>
+                        <label class="form-label">Garment Condition *</label>
                         <select class="form-select" name="condition_status" required>
-                            <option value="Brand New">Brand New</option>
-                            <option value="Like New">Like New</option>
-                            <option value="Gently Used" selected>Gently Used</option>
-                            <option value="Well Used">Well Used</option>
+                            <option value="Brand New">Brand New with Tags</option>
+                            <option value="Like New">Like New (Worn 1-2 times)</option>
+                            <option value="Gently Used" selected>Gently Used (Good Vintage)</option>
+                            <option value="Well Used">Well Used (Streetwear Distressed)</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="grid2">
                     <div class="form-group">
-                        <label class="form-label">Selling Price (Rs.) *</label>
-                        <input class="form-input" type="number" step="0.01" name="price" placeholder="e.g. 1500" required>
+                        <label class="form-label">Drop Price (Rs.) *</label>
+                        <input class="form-input" type="number" step="0.01" name="price" placeholder="e.g. 2400">
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Quantity / Stock *</label>
+                        <label class="form-label">Available Stock *</label>
                         <input class="form-input" type="number" name="stock" value="1" min="1" required>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Product Image</label>
-                    <input class="form-input" type="file" name="image" accept="image/*">
-                    <small class="muted">Upload a photo of your item (JPG, PNG, WEBP)</small>
+                    <label class="form-label">Apparel Photo Upload</label>
+                    <input class="form-input" type="file" name="image" id="apparel_image" accept="image/*" onchange="previewImage(event)">
+                    <small class="muted" style="margin-top:6px; display:block;">Upload a clear photo of the garment (JPG, PNG, WEBP)</small>
+                    <div id="image_preview_box" style="display:none; margin-top:14px;">
+                        <img id="image_preview" src="" alt="Preview" style="max-height:180px; border-radius:12px; border:1px solid var(--crimson);">
+                    </div>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Item Description</label>
-                    <textarea class="form-textarea" name="description" placeholder="Describe condition, size, brand, defects or features..."></textarea>
+                    <label class="form-label">Garment Description & Fit Details</label>
+                    <textarea class="form-textarea" name="description" placeholder="Specify fit size (S, M, L, XL, OS), brand (Nike, Stussy, Thrifted), fabric weight, condition notes or flaws..."></textarea>
                 </div>
 
-                <button type="submit" class="btn btn-green btn-full" style="padding:14px;">Publish Listing</button>
+                <button type="submit" class="btn btn-crimson btn-full" style="padding:15px;">🚀 PUBLISH STREETWEAR DROP</button>
             </form>
         </div>
 
+        <script>
+        function previewImage(event) {
+            var reader = new FileReader();
+            reader.onload = function() {
+                var output = document.getElementById('image_preview');
+                output.src = reader.result;
+                document.getElementById('image_preview_box').style.display = 'block';
+            };
+            if(event.target.files[0]) {
+                reader.readAsDataURL(event.target.files[0]);
+            }
+        }
+        </script>
+
     <?php } elseif ($page == 'my_listings') { ?>
 
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-            <h1>📦 My Listed Thrift Items</h1>
-            <a href="dashboard.php?page=add_product" class="btn btn-green">+ List New Item</a>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:28px;">
+            <div>
+                <h1>📦 MY WARDROBE DROPS</h1>
+                <p class="muted">Manage the clothing items you've posted for sale.</p>
+            </div>
+            <a href="dashboard.php?page=add_product" class="btn btn-crimson">+ LIST NEW DROP</a>
         </div>
 
         <div class="card">
             <?php if (count($my_products) == 0) { ?>
-                <p class="muted">You haven't listed any items yet. <a href="dashboard.php?page=add_product" style="color:var(--blue);">Start selling now &rarr;</a></p>
+                <p class="muted">Your wardrobe is empty! <a href="dashboard.php?page=add_product" style="color:var(--crimson); font-weight:800;">List your first drop now &rarr;</a></p>
             <?php } else { ?>
                 <table>
                     <thead>
                         <tr>
-                            <th>ITEM NAME</th>
+                            <th>GARMENT ITEM</th>
                             <th>CATEGORY</th>
                             <th>PRICE</th>
                             <th>CONDITION</th>
@@ -340,21 +426,36 @@ if (isset($_GET['err'])) {
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($my_products as $p) { ?>
+                        <?php foreach ($my_products as $p) {
+                            $category_images = [
+                                'Clothing & Outerwear' => ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=200'],
+                                'Footwear & Sneakers' => ['https://images.unsplash.com/photo-1542272604-787c3835535d?w=200']
+                            ];
+                            $cat_name = $p['category_name'];
+                            $images_for_cat = isset($category_images[$cat_name]) ? $category_images[$cat_name] : ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=200'];
+                            $assigned_image = $images_for_cat[$p['id'] % count($images_for_cat)];
+                            
+                            $img = !empty($p['image']) && file_exists(__DIR__ . '/uploads/' . $p['image']) ? 'uploads/' . $p['image'] : $assigned_image;
+                        ?>
                         <tr>
-                            <td><strong><?= htmlspecialchars($p['name']) ?></strong></td>
+                            <td>
+                                <div style="display:flex; align-items:center; gap:14px;">
+                                    <img src="<?= $img ?>" style="width:44px; height:44px; object-fit:cover; border-radius:10px; border:1px solid var(--border);" onerror="this.src='https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200';">
+                                    <strong style="color:var(--white);"><?= htmlspecialchars($p['name']) ?></strong>
+                                </div>
+                            </td>
                             <td class="muted"><?= htmlspecialchars($p['category_name']) ?></td>
-                            <td style="color:#3fb950; font-weight:700;">Rs. <?= number_format($p['price'], 2) ?></td>
+                            <td style="color:var(--cream); font-weight:800; font-family:'Outfit', sans-serif;">Rs. <?= number_format($p['price'], 2) ?></td>
                             <td><span class="badge badge-amber"><?= htmlspecialchars($p['condition_status']) ?></span></td>
                             <td>
                                 <?php if ($p['status'] === 'active') { ?>
-                                    <span class="badge">Active</span>
+                                    <span class="badge">ACTIVE DROP</span>
                                 <?php } else { ?>
-                                    <span class="badge" style="background:rgba(248,81,73,0.15); color:var(--red); border-color:rgba(248,81,73,0.3);">Sold Out</span>
+                                    <span class="badge badge-amber">SOLD OUT</span>
                                 <?php } ?>
                             </td>
                             <td>
-                                <a href="action.php?action=delete_product&id=<?= $p['id'] ?>" onclick="return confirm('Are you sure you want to remove this item?');" class="btn btn-red" style="padding:4px 10px; font-size:12px;">Delete</a>
+                                <a href="action.php?action=delete_product&id=<?= $p['id'] ?>" onclick="return confirm('Are you sure you want to remove this garment?');" class="btn btn-red" style="padding:5px 12px; font-size:11px;">DELETE</a>
                             </td>
                         </tr>
                         <?php } ?>
@@ -363,81 +464,54 @@ if (isset($_GET['err'])) {
             <?php } ?>
         </div>
 
-    <?php } elseif ($page == 'withdraw') { ?>
-
-        <h1>💵 Wallet Earnings & Withdrawal</h1>
-
-        <div class="grid2">
-            <div class="card">
-                <h2>Withdrawal Request</h2>
-                <p class="muted" style="margin-bottom:20px;">Transfer earnings to your eSewa, Khalti, or Bank account.</p>
-
-                <div style="background:rgba(88,166,255,0.1); border:1px solid rgba(88,166,255,0.2); padding:16px; border-radius:10px; margin-bottom:20px;">
-                    <div style="font-size:12px; color:var(--muted); text-transform:uppercase;">Available Balance</div>
-                    <div style="font-size:28px; font-weight:800; color:#3fb950;">Rs. <?= number_format($balance, 2) ?></div>
-                </div>
-
-                <form method="POST" action="action.php">
-                    <input type="hidden" name="action" value="withdraw">
-                    <div class="form-group">
-                        <label class="form-label">Withdrawal Amount (Rs.)</label>
-                        <input class="form-input" type="number" step="0.01" name="amount" placeholder="e.g. 1000" min="1" max="<?= $balance ?>" required>
-                    </div>
-
-                    <button type="submit" class="btn btn-red btn-full" <?= $balance <= 0 ? 'disabled style="opacity:0.5;"' : '' ?>>
-                        Confirm Withdrawal Request
-                    </button>
-                </form>
-            </div>
-
-            <div class="card">
-                <h2>Demo Top-Up (Testing Tool)</h2>
-                <p class="muted" style="margin-bottom:20px;">Add demo balance to test buyer purchases during your BCA project demo.</p>
-
-                <form method="POST" action="action.php">
-                    <input type="hidden" name="action" value="deposit">
-                    <div class="form-group">
-                        <label class="form-label">Top-Up Amount (Rs.)</label>
-                        <input class="form-input" type="number" name="amount" value="2000" min="100" required>
-                    </div>
-
-                    <button type="submit" class="btn btn-green btn-full">
-                        + Add Demo Funds to Wallet
-                    </button>
-                </form>
-            </div>
-        </div>
-
     <?php } elseif ($page == 'history') { ?>
 
-        <h1>📋 Full Transaction History</h1>
+        <div style="margin-bottom:28px;">
+            <h1>🛒 ORDER & SALES LOG</h1>
+            <p class="muted">Complete record of clothing items you have acquired or sold.</p>
+        </div>
 
         <div class="card">
-            <?php if (count($txns) == 0) { ?>
-                <p class="muted">No transactions found.</p>
+            <?php 
+            $all_activity = array_merge(
+                array_map(function($o){ $o['act_type'] = 'Bought'; return $o; }, $my_orders),
+                array_map(function($s){ $s['act_type'] = 'Sold'; return $s; }, $my_sales)
+            );
+            usort($all_activity, function($a, $b){ return strtotime($b['created_at']) - strtotime($a['created_at']); });
+
+            if (count($all_activity) == 0) { ?>
+                <p class="muted">No order activity logged yet.</p>
             <?php } else { ?>
                 <table>
                     <thead>
                         <tr>
-                            <th>REF ID</th>
-                            <th>DESCRIPTION</th>
-                            <th>DATE & TIME</th>
+                            <th>ORDER REF</th>
+                            <th>GARMENT ITEM</th>
                             <th>TYPE</th>
+                            <th>PARTY</th>
+                            <th>DATE</th>
                             <th>STATUS</th>
-                            <th>AMOUNT</th>
+                            <th>PRICE</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($txns as $t) { ?>
+                        <?php foreach ($all_activity as $act) { ?>
                         <tr>
-                            <td class="muted">#<?= htmlspecialchars($t['txn_ref']) ?></td>
-                            <td><?= htmlspecialchars($t['description']) ?></td>
-                            <td class="muted"><?= date('Y-m-d H:i:s', strtotime($t['created_at'])) ?></td>
-                            <td class="muted"><?= ucfirst($t['type']) ?></td>
-                            <td><span class="badge">Completed</span></td>
-                            <td class="<?= $t['type'] == 'credit' ? 'pos' : 'neg' ?>">
-                                <?= $t['type'] == 'credit' ? '+' : '-' ?>Rs. <?= number_format($t['amount'], 2) ?>
+                            <td class="muted">#<?= htmlspecialchars($act['order_ref']) ?></td>
+                            <td><strong style="color:var(--white);"><?= htmlspecialchars($act['product_name']) ?></strong></td>
+                            <td>
+                                <?php if ($act['act_type'] === 'Bought') { ?>
+                                    <span class="badge badge-purple">🛍️ ACQUIRED</span>
+                                <?php } else { ?>
+                                    <span class="badge badge-amber">🏷️ SOLD</span>
+                                <?php } ?>
                             </td>
+                            <td class="muted">
+                                <?= $act['act_type'] === 'Bought' ? 'Seller: @' . htmlspecialchars($act['seller_username']) : 'Buyer: @' . htmlspecialchars($act['buyer_username']) ?>
+                            </td>
+                            <td class="muted"><?= date('Y-m-d H:i', strtotime($act['created_at'])) ?></td>
+                            <td><span class="badge">COMPLETED</span></td>
+                            <td style="color:var(--cream); font-weight:800; font-family:'Outfit', sans-serif;">Rs. <?= number_format($act['amount'], 2) ?></td>
                         </tr>
                         <?php } ?>
                     </tbody>
@@ -447,41 +521,48 @@ if (isset($_GET['err'])) {
 
     <?php } elseif ($page == 'account') { ?>
 
-        <h1>👤 My Profile & Account Details</h1>
+        <div style="margin-bottom:28px;">
+            <h1>👤 MY PROFILE</h1>
+            <p class="muted">Your verified curator profile and sustainability stats.</p>
+        </div>
 
         <div class="grid2">
             <div class="card">
-                <h2>User Profile</h2>
-                <table style="margin-top:12px;">
+                <h2>CURATOR DETAILS</h2>
+                <table style="margin-top:14px;">
                     <tr>
-                        <td class="muted" style="border:none; width:140px; padding:10px 0;">Full Name</td>
-                        <td style="border:none;"><strong><?= htmlspecialchars($full_name) ?></strong></td>
+                        <td class="muted" style="border:none; width:140px; padding:10px 0;">FULL NAME</td>
+                        <td style="border:none;"><strong style="color:var(--white);"><?= htmlspecialchars($full_name) ?></strong></td>
                     </tr>
                     <tr>
-                        <td class="muted" style="border:none; padding:10px 0;">Username</td>
+                        <td class="muted" style="border:none; padding:10px 0;">USERNAME</td>
                         <td style="border:none;">@<?= htmlspecialchars($username) ?></td>
                     </tr>
                     <tr>
-                        <td class="muted" style="border:none; padding:10px 0;">Email</td>
+                        <td class="muted" style="border:none; padding:10px 0;">EMAIL</td>
                         <td style="border:none;"><?= htmlspecialchars($email) ?></td>
                     </tr>
                     <tr>
-                        <td class="muted" style="border:none; padding:10px 0;">Account Role</td>
-                        <td style="border:none;"><span class="badge"><?= ucfirst($role) ?></span></td>
+                        <td class="muted" style="border:none; padding:10px 0;">ROLE</td>
+                        <td style="border:none;"><span class="badge badge-amber"><?= strtoupper(htmlspecialchars($role)) ?></span></td>
                     </tr>
                     <tr>
-                        <td class="muted" style="border:none; padding:10px 0;">Wallet Balance</td>
-                        <td style="border:none; color:#3fb950; font-weight:700;">Rs. <?= number_format($balance, 2) ?></td>
+                        <td class="muted" style="border:none; padding:10px 0;">MEMBER SINCE</td>
+                        <td style="border:none;"><?= date('F d, Y', strtotime($created_at)) ?></td>
                     </tr>
                 </table>
             </div>
 
             <div class="card">
-                <h2>Quick Overview</h2>
-                <p class="muted">Listed Items: <strong><?= count($my_products) ?></strong></p>
-                <p class="muted" style="margin-top:8px;">Total Transactions Logged: <strong><?= count($txns) ?></strong></p>
-                <div style="margin-top:20px;">
-                    <a href="logout.php" class="btn btn-red btn-full">Sign Out</a>
+                <h2>WARDROBE METRICS</h2>
+                <div style="margin-bottom:16px;">
+                    <p class="muted">Active Wardrobe Drops: <strong style="color:var(--white);"><?= $active_listings ?></strong></p>
+                    <p class="muted" style="margin-top:8px;">Garments Rehomed / Sold: <strong style="color:var(--white);"><?= $sales_count ?></strong></p>
+                    <p class="muted" style="margin-top:8px;">Streetwear Purchases: <strong style="color:var(--white);"><?= $purchases_count ?></strong></p>
+                    <p class="muted" style="margin-top:8px;">Sustainability Score: <strong style="color:var(--cream);"><?= $eco_score ?> Garments Recycled </strong></p>
+                </div>
+                <div style="margin-top:28px;">
+                    <a href="logout.php" class="btn btn-red btn-full">SIGN OUT OF ACCOUNT</a>
                 </div>
             </div>
         </div>

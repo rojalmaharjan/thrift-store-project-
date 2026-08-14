@@ -1,16 +1,19 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  
-    --crimson: #3b82f6;        /* Cool blue accent color */
-    --crimson-glow: rgba(59, 130, 246, 0.4); 
-    --bg-dark: #0b0f19;        /* Deep navy-black background */
-    --card-bg: #111827;        /* Dark slate card background */
-    --border: #1f2937;         /* Subtle border line */
-    --white: #ffffff;          /* Bright white headings */
-    --muted: #9ca3af;          /* Muted gray text */
-    --cream: #f3f4f6;          /* Accent text color */
+    --accent: #3b82f6;          /* Cool blue accent color */
+    --accent-glow: rgba(59, 130, 246, 0.2); 
+    --bg-dark: #0b0f19;         /* Deep navy-black background */
+    --card-bg: #111827;         /* Dark slate card background */
+    --border: #1f2937;          /* Subtle border line */
+    --white: #ffffff;           /* Bright white headings */
+    --muted: #9ca3af;           /* Muted gray text */
+    --cream: #f3f4f6;           /* Accent text color */
+}
 
+/* Global Focus Reset */
+*:focus, *:focus-visible, *:active {
+    outline: none !important;
 }
 
 body {
@@ -20,10 +23,11 @@ body {
     margin: 0;
     display: flex;
 }
+
 /* Sidebar Navigation */
 .sidebar {
     width: 280px;
-    background: var(--surface);
+    background: var(--card-bg);
     border-right: 1px solid var(--border);
     padding: 32px 20px;
     display: flex;
@@ -50,7 +54,7 @@ body {
 }
 
 .sidebar-logo em {
-    color: var(--crimson);
+    color: var(--accent);
     font-style: normal;
 }
 
@@ -58,10 +62,10 @@ body {
     font-size: 9px;
     font-weight: 800;
     color: var(--cream);
-    background: var(--crimson-dark);
+    background: var(--border);
     padding: 3px 8px;
     border-radius: 4px;
-    border: 1px solid var(--crimson);
+    border: 1px solid var(--border);
     letter-spacing: 1px;
 }
 
@@ -78,23 +82,26 @@ body {
     margin-bottom: 6px;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     letter-spacing: -0.2px;
+    background: transparent;
+    border: 1px solid transparent;
 }
 
 .nav-item:hover { 
-    background: var(--surface-hover); 
+    background: rgba(255, 255, 255, 0.03); 
     color: var(--white); 
     transform: translateX(4px);
 }
 
+/* Fixed active state: Clean dark slate / subtle blue border instead of red */
 .nav-item.active { 
-    background: linear-gradient(135deg, rgba(225, 29, 72, 0.2) 0%, rgba(69, 10, 10, 0.4) 100%); 
+    background: rgba(59, 130, 246, 0.08); 
     color: var(--white); 
-    border: 1px solid var(--crimson-border); 
-    box-shadow: 0 4px 20px rgba(225, 29, 72, 0.15);
+    border: 1px solid var(--border); 
+    box-shadow: none;
 }
 
-.nav-item.logout { color: var(--crimson); margin-top: auto; }
-.nav-item.logout:hover { background: rgba(225, 29, 72, 0.15); }
+.nav-item.logout { color: var(--accent); margin-top: auto; }
+.nav-item.logout:hover { background: rgba(59, 130, 246, 0.05); }
 
 .sidebar-footer {
     margin-top: auto;
@@ -106,15 +113,15 @@ body {
     width: 42px;
     height: 42px;
     border-radius: 10px;
-    background: linear-gradient(135deg, var(--crimson), var(--burgundy));
+    background: var(--border);
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 900;
     font-size: 16px;
     color: var(--cream);
-    box-shadow: 0 4px 14px rgba(225, 29, 72, 0.4);
-    border: 1px solid var(--crimson);
+    box-shadow: none;
+    border: 1px solid var(--border);
 }
 
 .user-chip {
@@ -154,16 +161,16 @@ h2 {
     text-transform: uppercase;
 }
 
-/* Editorial Streetwear Hero Banner (Inspired by Marrow/Streetwear poster aesthetics) */
+/* Editorial Streetwear Hero Banner */
 .hero-streetwear {
     position: relative;
-    background: linear-gradient(135deg, #450a0a 0%, #881337 40%, #09090b 100%);
-    border: 1px solid var(--crimson);
+    background: var(--card-bg);
+    border: 1px solid var(--border);
     border-radius: 20px;
     padding: 44px;
     margin-bottom: 32px;
     overflow: hidden;
-    box-shadow: var(--shadow-bold);
+    box-shadow: none;
 }
 
 .hero-streetwear::before {
@@ -173,27 +180,25 @@ h2 {
     right: -10%;
     width: 450px;
     height: 450px;
-    background: radial-gradient(circle, rgba(225, 29, 72, 0.35) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
     pointer-events: none;
 }
 
-/* Lightning Graphic Overlay Motif */
 .hero-lightning-bg {
     position: absolute;
     right: 20px;
     top: 0;
     bottom: 0;
     width: 320px;
-    background: linear-gradient(135deg, rgba(225, 29, 72, 0.25) 0%, transparent 100%);
-    clip-path: polygon(40% 0, 100% 0, 60% 50%, 90% 50%, 10% 100%, 30% 55%, 0 55%);
-    opacity: 0.25;
+    background: transparent;
+    opacity: 0.1;
     pointer-events: none;
 }
 
 .hero-tag {
     font-size: 11px;
     font-weight: 800;
-    color: var(--ivory);
+    color: var(--muted);
     letter-spacing: 2px;
     text-transform: uppercase;
     margin-bottom: 12px;
@@ -211,28 +216,26 @@ h2 {
     letter-spacing: -2px;
     color: var(--cream);
     margin-bottom: 14px;
-    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .hero-subtitle {
     font-size: 15px;
-    color: var(--ivory);
+    color: var(--muted);
     max-width: 540px;
     font-style: italic;
-    opacity: 0.9;
     margin-bottom: 24px;
 }
 
-/* Diagonal Editorial Hero (Marrow poster-reference: black/crimson diagonal blocks, cream wordmark, centered logo) */
+/* Diagonal Editorial Hero */
 .hero-marrow {
     position: relative;
     min-height: 460px;
     border-radius: 20px;
     overflow: hidden;
     margin-bottom: 32px;
-    border: 1px solid var(--crimson);
-    box-shadow: var(--shadow-bold);
-    background: var(--crimson-dark);
+    border: 1px solid var(--border);
+    box-shadow: none;
+    background: var(--card-bg);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -270,9 +273,9 @@ h2 {
     width: 44px;
     height: 44px;
     margin: 18px auto 0;
-    background: var(--crimson);
+    background: var(--border);
     color: var(--white);
-    border: 2px solid var(--cream);
+    border: 2px solid var(--border);
     border-radius: 8px;
     display: flex;
     align-items: center;
@@ -280,7 +283,7 @@ h2 {
     font-family: 'Outfit', sans-serif;
     font-weight: 900;
     font-size: 18px;
-    box-shadow: 0 6px 18px rgba(225, 29, 72, 0.5);
+    box-shadow: none;
 }
 
 .hero-wordmark-editorial {
@@ -292,22 +295,20 @@ h2 {
     line-height: 0.9;
     text-transform: lowercase;
     margin: 12px 0 16px;
-    text-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
 }
 
 .hero-poster-tagline {
     font-size: 15px;
-    color: var(--ivory);
+    color: var(--muted);
     max-width: 360px;
     margin: 0 auto;
     font-weight: 600;
-    opacity: 0.9;
     line-height: 1.5;
 }
 
 /* Card Styling */
 .card {
-    background: var(--surface-card);
+    background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: 18px;
     padding: 28px;
@@ -317,7 +318,7 @@ h2 {
 }
 
 .card:hover {
-    border-color: rgba(225, 29, 72, 0.4);
+    border-color: var(--muted);
 }
 
 .card-label {
@@ -340,7 +341,6 @@ h2 {
 .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; margin-bottom: 28px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
 
-/* Actions Row (stretch buttons to fill width evenly) */
 .actions-row {
     display: flex;
     gap: 14px;
@@ -360,7 +360,7 @@ h2 {
 }
 
 .product-card {
-    background: var(--surface-card);
+    background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: 18px;
     overflow: hidden;
@@ -371,8 +371,8 @@ h2 {
 
 .product-card:hover {
     transform: translateY(-6px);
-    border-color: var(--crimson);
-    box-shadow: 0 16px 36px rgba(225, 29, 72, 0.25);
+    border-color: var(--muted);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
 }
 
 .product-img-wrap {
@@ -401,7 +401,7 @@ h2 {
     background: rgba(9, 9, 11, 0.85);
     backdrop-filter: blur(8px);
     color: var(--cream);
-    border: 1px solid var(--crimson);
+    border: 1px solid var(--border);
     padding: 4px 10px;
     border-radius: 6px;
     font-size: 10px;
@@ -414,9 +414,9 @@ h2 {
     position: absolute;
     top: 14px;
     right: 14px;
-    background: var(--crimson-dark);
+    background: var(--border);
     color: var(--white);
-    border: 1px solid var(--crimson);
+    border: 1px solid var(--border);
     padding: 4px 10px;
     border-radius: 6px;
     font-size: 11px;
@@ -433,7 +433,7 @@ h2 {
 .product-category {
     font-size: 11px;
     font-weight: 800;
-    color: var(--crimson);
+    color: var(--muted);
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-bottom: 6px;
@@ -483,8 +483,8 @@ h2 {
     font-weight: 600;
 }
 
-.alert-success { background: rgba(225, 29, 72, 0.15); color: var(--cream); border: 1px solid var(--crimson); }
-.alert-error { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); }
+.alert-success { background: rgba(31, 41, 55, 0.4); color: var(--cream); border: 1px solid var(--border); }
+.alert-error { background: rgba(31, 41, 55, 0.4); color: var(--white); border: 1px solid var(--border); }
 
 /* Forms & Inputs */
 .form-group { margin-bottom: 22px; }
@@ -493,7 +493,7 @@ h2 {
     display: block;
     font-size: 12px;
     font-weight: 800;
-    color: var(--ivory);
+    color: var(--muted);
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-bottom: 8px;
@@ -502,19 +502,20 @@ h2 {
 .form-input, .form-select, .form-textarea {
     width: 100%;
     padding: 13px 18px;
-    background: var(--bg);
+    background: var(--bg-dark);
     border: 1px solid var(--border);
     border-radius: 10px;
     color: var(--white);
     font-size: 14px;
     font-family: inherit;
     transition: all 0.2s;
+    outline: none !important;
 }
 
 .form-input:focus, .form-select:focus, .form-textarea:focus {
-    outline: none;
-    border-color: var(--crimson);
-    box-shadow: 0 0 0 3px var(--crimson-glow);
+    outline: none !important;
+    border-color: var(--muted);
+    box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.1);
 }
 
 .form-textarea { min-height: 120px; resize: vertical; }
@@ -536,31 +537,36 @@ h2 {
     cursor: pointer;
     text-decoration: none;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none !important;
 }
 
-.btn:active { transform: scale(0.97); }
+.btn:active, .btn:focus { 
+    transform: scale(0.97); 
+    outline: none !important;
+}
 
+/* Neutralized button states (removed crimson/red variants entirely) */
 .btn-crimson, .btn-green, .btn-emerald { 
-    background: linear-gradient(135deg, var(--crimson) 0%, var(--crimson-dark) 100%); 
+    background: var(--border); 
     color: var(--white); 
-    box-shadow: 0 4px 16px rgba(225, 29, 72, 0.3);
-    border: 1px solid var(--crimson);
+    box-shadow: none;
+    border: 1px solid var(--border);
 }
 
 .btn-crimson:hover, .btn-green:hover, .btn-emerald:hover { 
-    background: linear-gradient(135deg, var(--crimson-hover) 0%, var(--crimson) 100%);
-    box-shadow: 0 6px 22px rgba(225, 29, 72, 0.45);
+    background: #374151;
+    box-shadow: none;
     color: var(--white);
 }
 
 .btn-cream {
     background: var(--cream);
     color: #000;
-    box-shadow: 0 4px 16px rgba(254, 240, 138, 0.3);
+    box-shadow: none;
 }
 
 .btn-cream:hover {
-    background: #fef9c3;
+    background: #e5e7eb;
 }
 
 .btn-outline { 
@@ -570,8 +576,8 @@ h2 {
 }
 
 .btn-outline:hover { 
-    background: var(--surface-hover); 
-    border-color: var(--crimson); 
+    background: rgba(255, 255, 255, 0.03); 
+    border-color: var(--muted); 
 }
 
 .btn-full { width: 100%; }
@@ -589,7 +595,7 @@ th {
 }
 td {
     padding: 18px;
-    border-bottom: 1px solid rgba(41, 34, 48, 0.6);
+    border-bottom: 1px solid var(--border);
     font-size: 14px;
 }
 
@@ -599,28 +605,28 @@ td {
     border-radius: 6px;
     font-size: 11px;
     font-weight: 800;
-    background: rgba(225, 29, 72, 0.15);
+    background: var(--border);
     color: var(--cream);
-    border: 1px solid var(--crimson);
+    border: 1px solid var(--border);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .badge-amber {
-    background: rgba(245, 158, 11, 0.15);
+    background: rgba(245, 158, 11, 0.1);
     color: #fde047;
-    border-color: rgba(245, 158, 11, 0.4);
+    border-color: rgba(245, 158, 11, 0.3);
 }
 
 .badge-purple {
-    background: rgba(168, 85, 247, 0.15);
+    background: rgba(168, 85, 247, 0.1);
     color: #e9d5ff;
-    border-color: rgba(168, 85, 247, 0.4);
+    border-color: rgba(168, 85, 247, 0.3);
 }
 
 .muted { color: var(--muted); font-size: 13px; }
 
-/* Hero banner (dashboard top image card) */
+/* Hero banner */
 .hero-banner-wrap {
     position: relative;
     width: 100%;

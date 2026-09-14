@@ -485,13 +485,13 @@ if (isset($_GET['err'])) {
                 <table>
                     <thead>
                         <tr>
-                            <th>ORDER REF</th>
-                            <th>GARMENT ITEM</th>
-                            <th>TYPE</th>
-                            <th>PARTY</th>
-                            <th>DATE</th>
-                            <th>STATUS</th>
-                            <th>PRICE</th>
+                            <th>Order </th>
+                            <th>Item</th>
+                            <th>Type</th>
+                            <th>Party</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Price</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -522,7 +522,7 @@ if (isset($_GET['err'])) {
     <?php } elseif ($page == 'account') { ?>
 
         <div style="margin-bottom:28px;">
-            <h1>👤 MY PROFILE</h1>
+            <h1> MY PROFILE</h1>
             <p class="muted">Your verified curator profile and sustainability stats.</p>
         </div>
 

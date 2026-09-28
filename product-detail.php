@@ -21,14 +21,7 @@ $is_logged_in = isset($_SESSION['user_id']);
 $user_id = $_SESSION['user_id'] ?? 0;
 $is_own_item = $is_logged_in && ($user_id == $product['seller_id']);
 
-// Fetch user wallet balance if logged in
-$balance = 0;
-if ($is_logged_in) {
-    $u_stmt = $conn->prepare("SELECT balance FROM users WHERE id = ?");
-    $u_stmt->bind_param("i", $user_id);
-    $u_stmt->execute();
-    $balance = floatval($u_stmt->get_result()->fetch_assoc()['balance']);
-}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -42,7 +35,7 @@ if ($is_logged_in) {
 
 <nav class="navbar">
     <div class="container nav-container">
-        <a href="index.php" class="brand">🧥 ThriftHub</a>
+        <a href="index.php" class="brand"> ThriftHub</a>
         <ul class="nav-links">
             <li><a href="index.php" class="nav-link">Home</a></li>
             <li><a href="products.php" class="nav-link active">Browse Marketplace</a></li>
